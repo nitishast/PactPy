@@ -9,50 +9,50 @@ class VAE(nn.Module):
         super(VAE, self).__init__()
         
         # Encoder
-        self.encoder = nn.Sequential(
-            nn.Linear(num_items, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU()
+        self.encoder = nn.Sequential( # sequential is a container that holds a sequence of layers
+            nn.Linear(num_items, hidden_dim), # input layer
+            nn.ReLU(), # activation function
+            nn.Linear(hidden_dim, hidden_dim), # hidden layer
+            nn.ReLU() # activation function
         )
         
-        self.mean = nn.Linear(hidden_dim, latent_dim)
-        self.log_var = nn.Linear(hidden_dim, latent_dim)
+        self.mean = nn.Linear(hidden_dim, latent_dim) # mean layer
+        self.log_var = nn.Linear(hidden_dim, latent_dim) # log variance layer
         
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, num_items),
-            nn.Sigmoid()
+            nn.Linear(latent_dim, hidden_dim), # input layer                
+            nn.ReLU(), # activation function
+            nn.Linear(hidden_dim, hidden_dim), # hidden layer
+            nn.ReLU(), # activation function
+            nn.Linear(hidden_dim, num_items), # output layer
+            nn.Sigmoid() # activation function
         )
         
     def encode(self, x):
         h = self.encoder(x)
-        return self.mean(h), self.log_var(h)
+        return self.mean(h), self.log_var(h) # return the mean and log variance
     
     def reparameterize(self, mu, log_var):
-        std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std)
-        return mu + eps * std
+        std = torch.exp(0.5 * log_var) # standard deviation
+        eps = torch.randn_like(std) # random noise
+        return mu + eps * std # return the latent vector
     
     def decode(self, z):
-        return self.decoder(z)
+        return self.decoder(z) # decode the latent vector to get the reconstructed user vector
     
     def forward(self, x):
         mu, log_var = self.encode(x)
         z = self.reparameterize(mu, log_var)
-        return self.decode(z), mu, log_var
+        return self.decode(z), mu, log_var # return the reconstructed user vector, the mean and log variance
 
 def loss_function(recon_x, x, mu, log_var):
-    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-    KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
-    return BCE + KLD
+    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum') # binary cross entropy loss
+    KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp()) # Kullback-Leibler divergence
+    return BCE + KLD # return the total loss
 
 def train(model, optimizer, data, epochs=100, batch_size=128):
-    model.train()
+    model.train() # set the model to training mode
     for epoch in range(epochs):
         total_loss = 0
         for i in range(0, data.shape[0], batch_size):
@@ -66,22 +66,22 @@ def train(model, optimizer, data, epochs=100, batch_size=128):
         print(f'Epoch {epoch+1}, Loss: {total_loss/data.shape[0]:.4f}')
 
 def generate_recommendations(model, user_vector, top_k=10):
-    model.eval()
-    with torch.no_grad():
-        mu, log_var = model.encode(user_vector.unsqueeze(0))
-        z = model.reparameterize(mu, log_var)
-        recon = model.decode(z).squeeze()
+    model.eval() # set the model to evaluation mode
+    with torch.no_grad(): # no grad because we are not training the model
+        mu, log_var = model.encode(user_vector.unsqueeze(0)) # encode the user vector
+        z = model.reparameterize(mu, log_var) # reparameterize the latent vector
+        recon = model.decode(z).squeeze() # decode the latent vector to get the reconstructed user vector
     
     # Get top-k items
-    _, indices = torch.topk(recon, top_k)
-    return indices.tolist()
+    _, indices = torch.topk(recon, top_k) # get the top-k items
+    return indices.tolist() # return the top-k items
 
 # Example usage
 num_users, num_items = 1000, 500
 data = torch.rand(num_users, num_items)  # Replace with your actual user-item interaction data
 
-model = VAE(num_items)
-optimizer = optim.Adam(model.parameters())
+model = VAE(num_items) # create the model   
+optimizer = optim.Adam(model.parameters()) # create the optimizer
 
 # Train the model
 train(model, optimizer, data)
